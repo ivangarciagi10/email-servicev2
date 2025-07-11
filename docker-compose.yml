@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  email-api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - SHOPIFY_SHOP_DOMAIN=${SHOPIFY_SHOP_DOMAIN}
+      - SHOPIFY_ACCESS_TOKEN=${SHOPIFY_ACCESS_TOKEN}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - FROM_EMAIL=${FROM_EMAIL}
+      - FROM_NAME=${FROM_NAME}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: unless-stopped 
