@@ -1,17 +1,17 @@
-name: Deploy Email API Service
+name: Test and Build Email API Service
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 env:
   NODE_ENV: production
   PORT: 3000
 
 jobs:
-  test:
+  test-and-build:
     runs-on: ubuntu-latest
     
     strategy:
@@ -35,40 +35,18 @@ jobs:
     
     - name: Run tests
       run: npm test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js 18
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18.x'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build
-      run: npm run build
     
     - name: Build Docker image
       run: docker build -t email-api-service .
     
-    - name: Deploy to server
-      env:
-        SHOPIFY_SHOP_DOMAIN: ${{ secrets.SHOPIFY_SHOP_DOMAIN }}
-        SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
-        SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-        FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-        FROM_NAME: ${{ secrets.FROM_NAME }}
-        WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+    - name: Success message
       run: |
-        echo "Deploying to server..."
-        # Aquí puedes agregar los comandos para desplegar a tu servidor
-        # Por ejemplo, usando SSH, Docker, o cualquier otro método
-        echo "Deployment completed!" 
+        echo "✅ Tests pasaron exitosamente!"
+        echo "✅ Build completado!"
+        echo "✅ Docker image construida!"
+        echo ""
+        echo "🚀 Para desplegar manualmente:"
+        echo "1. Clona el repositorio en tu servidor"
+        echo "2. Configura las variables de entorno"
+        echo "3. Ejecuta: npm run deploy:prod"
+        echo "   o: docker run -p 3000:3000 email-api-service" 
