@@ -17,7 +17,8 @@
     "logs": "pm2 logs email-api-service",
     "docker:build": "docker build -t email-api-service .",
     "docker:run": "docker run -d --name email-api-service --restart unless-stopped -p 3000:3000 email-api-service",
-    "docker:stop": "docker stop email-api-service && docker rm email-api-service"
+    "docker:stop": "docker stop email-api-service && docker rm email-api-service",
+    "vercel-build": "npm run build"
   },
   "engines": {
     "node": "18"
