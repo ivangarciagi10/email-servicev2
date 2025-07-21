@@ -178,9 +178,30 @@ export class EmailService {
     const orderNumber = draftOrder.name;
     const currency = draftOrder.currency;
 
-    // Calcular precio del decorado y total real
+    // Calcular precios correctos
     const { adjustedLineItems } = this.calculateDecorationPrice(draftOrder.line_items);
-    const totalPrice = this.calculateTotalWithDecoration(adjustedLineItems).toFixed(2);
+    // NUEVO: Calcular precios base y decorado por producto
+    const itemsHtml = adjustedLineItems.map(item => {
+      const basePrice = parseFloat(item.price) - (item.decorationPrice || 0);
+      const decoration = item.decorationPrice || 0;
+      const totalBase = basePrice * item.quantity;
+      const totalDecoration = decoration; // decorado ya es el total para la línea
+      const total = totalBase + totalDecoration;
+      const unitario = (totalBase + totalDecoration) / item.quantity;
+      return `
+        <div class="item">
+          <p><strong>${item.title}</strong></p>
+          <p>Cantidad: ${item.quantity}</p>
+          <p>Precio unitario: ${currency} ${unitario.toFixed(2)}</p>
+          <p>Precio total: ${currency} ${total.toFixed(2)}</p>
+        </div>
+      `;
+    }).join('');
+    const totalPrice = adjustedLineItems.reduce((acc, item) => {
+      const basePrice = parseFloat(item.price) - (item.decorationPrice || 0);
+      const decoration = item.decorationPrice || 0;
+      return acc + basePrice * item.quantity + decoration;
+    }, 0).toFixed(2);
 
     return `
       <!DOCTYPE html>
@@ -196,8 +217,6 @@ export class EmailService {
           .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; }
           .order-details { background-color: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px; }
           .item { margin: 10px 0; padding: 10px; border-bottom: 1px solid #eee; }
-          .decoration-section { background-color: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #ffc107; }
-          .price-breakdown { background-color: #e9ecef; padding: 15px; margin: 20px 0; border-radius: 5px; }
         </style>
       </head>
       <body>
@@ -205,33 +224,20 @@ export class EmailService {
           <div class="header">
             <h1>¡Cotización Creada Exitosamente!</h1>
           </div>
-          
           <div class="content">
-            <p>Estimado/a ${customerName},</p>
-            
+            <p>Estimado/a ${customerName}
             <p>Su cotización ha sido creada exitosamente. A continuación encontrará los detalles:</p>
-            
             <div class="order-details">
               <h3>Detalles de la Cotización</h3>
               <p><strong>Número de Cotización:</strong> ${orderNumber}</p>
               <p><strong>Fecha:</strong> ${new Date(draftOrder.created_at).toLocaleDateString('es-ES')}</p>
               <p><strong>Total:</strong> ${currency} ${totalPrice}</p>
             </div>
-
             <h3>Productos Cotizados:</h3>
-            ${adjustedLineItems.map(item => `
-              <div class="item">
-                <p><strong>${item.title}</strong></p>
-                <p>Cantidad: ${item.quantity}</p>
-                <p>Precio: ${currency} ${parseFloat(item.price).toFixed(2)}</p>
-              </div>
-            `).join('')}
-
+            ${itemsHtml}
             <p>Nuestro equipo de asesores se pondrá en contacto con usted pronto para continuar con el proceso.</p>
-            
             <p>Si tiene alguna pregunta, no dude en contactarnos.</p>
           </div>
-          
           <div class="footer">
             <p>Este es un correo automático, por favor no responda a este mensaje.</p>
           </div>
@@ -421,65 +427,40 @@ Este es un correo automático del sistema de notificaciones.
     const decorationDetails: string[] = [];
     const adjustedLineItems: any[] = [];
 
-    console.log('🔍 Analizando custom attributes de productos...');
-
     lineItems.forEach((item, index) => {
-      console.log(`📦 Producto ${index + 1}: ${item.title}`);
-      console.log(`   - Precio base: ${item.price}`);
-      console.log(`   - Cantidad: ${item.quantity}`);
-      
+      // Log sólo del precio base
+      console.log(`📦 Producto: ${item.title} - Precio base: ${item.price}`);
       // Crear una copia del item para ajustar el precio
       const adjustedItem = { ...item };
       let itemDecorationPrice = 0;
-      
       // Verificar si tiene custom attributes (puede venir como properties o customAttributes)
       const customAttrs = item.customAttributes || item.properties || [];
-      
       if (customAttrs && Array.isArray(customAttrs)) {
-        console.log(`   - Custom attributes encontrados: ${customAttrs.length}`);
         customAttrs.forEach((attr: any) => {
-          // Manejar tanto la estructura GraphQL (key/value) como REST (name/value)
           const attrName = attr.key || attr.name;
           const attrValue = attr.value;
-          
-          console.log(`     * ${attrName}: ${attrValue}`);
-          
           // Buscar el atributo "Decorado" (case-insensitive)
           if (attrName && attrName.toLowerCase().includes('decorado')) {
+            // Log sólo del precio del decorado
             console.log(`     🎨 Decorado encontrado (${attrName}): ${attrValue}`);
-            
-            // Intentar extraer el precio del decorado
             const decorationPrice = this.extractDecorationPrice(attrValue);
             if (decorationPrice > 0) {
               itemDecorationPrice = decorationPrice;
               const itemDecorationTotal = decorationPrice * item.quantity;
               totalDecorationPrice += itemDecorationTotal;
               decorationDetails.push(`${item.title}: ${item.quantity}x $${decorationPrice.toFixed(2)} = $${itemDecorationTotal.toFixed(2)}`);
-              console.log(`     💰 Precio decorado por unidad: $${decorationPrice.toFixed(2)}`);
-              console.log(`     💰 Total decorado para este producto: $${itemDecorationTotal.toFixed(2)}`);
-            } else {
-              console.log(`     ⚠️ Decorado encontrado pero no se pudo extraer precio de: "${attrValue}"`);
             }
           }
         });
-      } else {
-        console.log(`   - No tiene custom attributes`);
       }
-
-      // Ajustar el precio del producto sumando el decorado
       if (itemDecorationPrice > 0) {
         const originalPrice = parseFloat(item.price);
         const newPrice = originalPrice + itemDecorationPrice;
         adjustedItem.price = newPrice.toFixed(2);
-        console.log(`     💰 Precio ajustado: $${originalPrice.toFixed(2)} + $${itemDecorationPrice.toFixed(2)} = $${newPrice.toFixed(2)}`);
+        adjustedItem.decorationPrice = itemDecorationPrice;
       }
-
       adjustedLineItems.push(adjustedItem);
     });
-
-    console.log(`🎨 Precio total del decorado: $${totalDecorationPrice.toFixed(2)}`);
-    console.log(`📋 Detalles del decorado:`, decorationDetails);
-
     return { totalDecorationPrice, decorationDetails, adjustedLineItems };
   }
 
@@ -530,6 +511,7 @@ Este es un correo automático del sistema de notificaciones.
    */
   private calculateTotalWithDecoration(adjustedLineItems: any[]): number {
     return adjustedLineItems.reduce((total, item) => {
+      console.log("EL ITEM ES: ", item);
       const itemTotal = parseFloat(item.price) * item.quantity;
       return total + itemTotal;
     }, 0);
