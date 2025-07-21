@@ -427,7 +427,7 @@ Este es un correo automático del sistema de notificaciones.
     const decorationDetails: string[] = [];
     const adjustedLineItems: any[] = [];
 
-    lineItems.forEach((item, index) => {
+    lineItems.forEach((item) => {
       // Log sólo del precio base
       console.log(`📦 Producto: ${item.title} - Precio base: ${item.price}`);
       // Crear una copia del item para ajustar el precio
