@@ -299,9 +299,29 @@ Este es un correo automático, por favor no responda a este mensaje.
     const orderNumber = draftOrder.name;
     const currency = draftOrder.currency;
 
-    // Calcular precio del decorado y total real
+    // Calcular precios correctos
     const { adjustedLineItems } = this.calculateDecorationPrice(draftOrder.line_items);
-    const totalPrice = this.calculateTotalWithDecoration(adjustedLineItems).toFixed(2);
+    const itemsHtml = adjustedLineItems.map(item => {
+      const basePrice = parseFloat(item.price) - (item.decorationPrice || 0);
+      const decoration = item.decorationPrice || 0;
+      const totalBase = basePrice * item.quantity;
+      const totalDecoration = decoration;
+      const total = totalBase + totalDecoration;
+      const unitario = (totalBase + totalDecoration) / item.quantity;
+      return `
+        <div class="item">
+          <p><strong>${item.title}</strong></p>
+          <p>Cantidad: ${item.quantity}</p>
+          <p>Precio unitario: ${currency} ${unitario.toFixed(2)}</p>
+          <p>Precio total: ${currency} ${total.toFixed(2)}</p>
+        </div>
+      `;
+    }).join('');
+    const totalPrice = adjustedLineItems.reduce((acc, item) => {
+      const basePrice = parseFloat(item.price) - (item.decorationPrice || 0);
+      const decoration = item.decorationPrice || 0;
+      return acc + basePrice * item.quantity + decoration;
+    }, 0).toFixed(2);
 
     return `
       <!DOCTYPE html>
@@ -318,8 +338,6 @@ Este es un correo automático, por favor no responda a este mensaje.
           .customer-info { background-color: #e9ecef; padding: 15px; margin: 20px 0; border-radius: 5px; }
           .order-details { background-color: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px; }
           .item { margin: 10px 0; padding: 10px; border-bottom: 1px solid #eee; }
-          .decoration-section { background-color: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #ffc107; }
-          .price-breakdown { background-color: #e9ecef; padding: 15px; margin: 20px 0; border-radius: 5px; }
         </style>
       </head>
       <body>
@@ -327,40 +345,26 @@ Este es un correo automático, por favor no responda a este mensaje.
           <div class="header">
             <h1>Nueva Cotización Generada</h1>
           </div>
-          
           <div class="content">
-            <p>Estimado/a ${advisorName},</p>
-            
+            <p>Estimado/a ${advisorName}</p>
             <p>Se ha generado una nueva cotización para uno de sus clientes asignados.</p>
-            
             <div class="customer-info">
               <h3>Información del Cliente</h3>
               <p><strong>Nombre:</strong> ${customerName}</p>
               <p><strong>Email:</strong> ${customer.email}</p>
               <p><strong>Teléfono:</strong> ${customer.phone || 'No proporcionado'}</p>
             </div>
-            
             <div class="order-details">
               <h3>Detalles de la Cotización</h3>
               <p><strong>Número de Cotización:</strong> ${orderNumber}</p>
               <p><strong>Fecha:</strong> ${new Date(draftOrder.created_at).toLocaleDateString('es-ES')}</p>
               <p><strong>Total:</strong> ${currency} ${totalPrice}</p>
             </div>
-
             <h3>Productos Cotizados:</h3>
-            ${adjustedLineItems.map(item => `
-              <div class="item">
-                <p><strong>${item.title}</strong></p>
-                <p>Cantidad: ${item.quantity}</p>
-                <p>Precio: ${currency} ${parseFloat(item.price).toFixed(2)}</p>
-              </div>
-            `).join('')}
-
+            ${itemsHtml}
             <p>Por favor, contacte al cliente lo antes posible para continuar con el proceso de venta.</p>
-            
             <p>Puede acceder a la cotización desde el panel de administración de Shopify.</p>
           </div>
-          
           <div class="footer">
             <p>Este es un correo automático del sistema de notificaciones.</p>
           </div>
